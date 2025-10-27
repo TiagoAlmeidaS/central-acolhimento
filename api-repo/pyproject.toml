@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "central-acolhimento-api"
+version = "0.1.0"
+description = "API REST for Central de Acolhimento - Cadastro de Contatos com LLM"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.0"
+uvicorn = "^0.27.0"
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.0"
+pydantic = "^2.5.3"
+pydantic-settings = "^2.1.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+httpx = "^0.26.0"
+structlog = "^24.1.0"
+prometheus-client = "^0.19.0"
+tenacity = "^8.2.3"
+pandas = "^2.1.4"
+openpyxl = "^3.1.2"
+psycopg2-binary = "^2.9.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.3"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+black = "^24.1.1"
+ruff = "^0.1.6"
+mypy = "^1.7.1"
+pre-commit = "^3.5.0"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
