@@ -33,16 +33,17 @@ Sistema de cadastro automatizado de contatos com processamento LLM local (Ollama
 
 **Arquivos criados**: 22 arquivos na API repo
 
-### 🔄 Em Progresso
+### ✅ Em Progresso - Implementação Core
 
 #### Implementação da API
-- [ ] CRUD completo (Create, Read, Update, Delete)
-- [ ] MCP client para integração com LLM
-- [ ] Services layer (business logic)
-- [ ] LLM integration (extração de entidades)
-- [ ] Validação de dados
-- [ ] Export para Excel
+- [x] CRUD completo (Create, Read, Update, Delete)
+- [x] Services layer (business logic)
+- [x] LLM integration (extração de entidades)
+- [x] Validação de dados
+- [x] Export para Excel
+- [x] Error handling
 - [ ] Testes (unit, integration)
+- [ ] MCP client refinado
 
 #### LLM Repository
 - [ ] Scaffolding do repositório LLM
@@ -107,6 +108,14 @@ Sistema de cadastro automatizado de contatos com processamento LLM local (Ollama
 2. **Commit 2** (`0a37afd`): Multi-repo scaffolding para API
    - 22 arquivos, estrutura completa da API
    - Docker, Alembic, FastAPI app configurado
+
+3. **Commit 3** (`cc6a04b`): Documentação status tracking
+
+4. **Commit 4** (`82328ca`): Development workflow e testing guides
+
+5. **Commit 5** (`f7137b9`): Implementação CRUD e LLM integration
+   - 8 arquivos, implementação completa do business logic
+   - ContatoRepository, ContatoService, LLMIntegration
 
 ## Estrutura Atual
 
