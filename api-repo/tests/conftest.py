@@ -11,8 +11,7 @@ from app.main import app
 # Create test database
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(
-    SQLALCHEMY_TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False}
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -28,12 +27,13 @@ def db():
 @pytest.fixture(scope="function")
 def client(db):
     """Create a test client with dependency override."""
+
     def override_get_db():
         try:
             yield db
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
         yield test_client
@@ -47,5 +47,5 @@ def sample_contato_data():
         "nome": "Maria Silva",
         "telefone": "11-9999-8888",
         "email": "maria@example.com",
-        "motivo": "apoio emocional"
+        "motivo": "apoio emocional",
     }

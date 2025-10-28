@@ -18,33 +18,28 @@ class LLMIntegration:
         self.timeout = settings.LLM_TIMEOUT
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10)
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10)
     )
     async def extract_entities(self, text: str) -> Dict[str, Any]:
         """Extract named entities from free text using LLM."""
         logger.info("llm_extraction_start", text_preview=text[:50])
-        
+
         prompt = self._build_extraction_prompt(text)
-        
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",
-                    json={
-                        "model": "llama3:8b",
-                        "prompt": prompt,
-                        "stream": False
-                    }
+                    json={"model": "llama3:8b", "prompt": prompt, "stream": False},
                 )
                 response.raise_for_status()
-                
+
                 result = response.json()
                 entities = self._parse_entities(result.get("response", ""))
-                
+
                 logger.info("llm_extraction_success", entities=entities)
                 return entities
-                
+
         except Exception as e:
             logger.error("llm_extraction_failure", error=str(e))
             raise
@@ -84,9 +79,9 @@ Formato de saída (JSON):
         """Parse LLM response to extract entities."""
         import json
         import re
-        
+
         # Try to extract JSON from response
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        json_match = re.search(r"\{.*\}", response, re.DOTALL)
         if json_match:
             json_str = json_match.group(0)
             try:
@@ -97,26 +92,27 @@ Formato de saída (JSON):
                 return entities
             except json.JSONDecodeError:
                 logger.warning("llm_json_parse_failed", response=response[:200])
-        
+
         # Fallback: return empty entities
         return {
             "nome": None,
             "telefone": None,
             "email": None,
             "motivo": None,
-            "data": None
+            "data": None,
         }
 
     def _normalize_phone(self, phone: str) -> str:
         """Normalize phone number to Brazilian format."""
         # Remove all non-digit characters
-        digits = ''.join(filter(str.isdigit, phone))
-        
+        digits = "".join(filter(str.isdigit, phone))
+
         # Format as XX-XXXX-XXXX or XX-9XXXX-XXXX if 11 digits
-        if len(digits) >= 10:
-            if len(digits) == 11:
-                return f"{digits[0:2]}-{digits[2:7]}-{digits[7:]}"
-            else:
-                return f"{digits[0:2]}-{digits[2:7]}-{digits[7:]}"
-        
+        if len(digits) == 11:
+            # Mobile format: XX-9XXXX-XXXX
+            return f"{digits[0:2]}-{digits[2:7]}-{digits[7:]}"
+        elif len(digits) == 10:
+            # Landline format: XX-XXXX-XXXX
+            return f"{digits[0:2]}-{digits[2:6]}-{digits[6:]}"
+
         return phone

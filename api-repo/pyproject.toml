@@ -1,49 +1,147 @@
-[tool.poetry]
-name = "central-acolhimento-api"
-version = "0.1.0"
-description = "API REST for Central de Acolhimento - Cadastro de Contatos com LLM"
-authors = ["Your Name <your.email@example.com>"]
-readme = "README.md"
-packages = [{include = "app"}]
+# Ruff configuration file
+# See: https://docs.astral.sh/ruff/configuration/
 
-[tool.poetry.dependencies]
-python = "^3.11"
-fastapi = "^0.109.0"
-uvicorn = "^0.27.0"
-sqlalchemy = "^2.0.25"
-alembic = "^1.13.0"
-pydantic = "^2.5.3"
-pydantic-settings = "^2.1.0"
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
-httpx = "^0.26.0"
-structlog = "^24.1.0"
-prometheus-client = "^0.19.0"
-tenacity = "^8.2.3"
-pandas = "^2.1.4"
-openpyxl = "^3.1.2"
-psycopg2-binary = "^2.9.9"
+[lint]
+# Enable specific rule sets
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "Q",  # flake8-quotes
+    "N",  # pep8-naming
+    "D",  # pydocstyle
+    "S",  # flake8-bandit
+    "A",  # flake8-builtins
+    "COM", # flake8-commas
+    "C90", # mccabe
+    "ICN", # flake8-import-conventions
+    "G",  # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PYI", # flake8-pyi
+    "PT", # flake8-pytest-style
+    "Q",  # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "TCH", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+    "TCH", # flake8-type-checking
+    "UP", # pyupgrade
+    "W",  # pycodestyle warnings
+    "YTT", # flake8-2020
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.4"
-pytest-asyncio = "^0.23.3"
-pytest-cov = "^4.1.0"
-pytest-mock = "^3.12.0"
-black = "^24.1.1"
-ruff = "^0.1.6"
-mypy = "^1.7.1"
-pre-commit = "^3.5.0"
+# Ignore specific rules
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in __init__
+    "S101", # Use of assert detected
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "S603", # subprocess call - check for execution of untrusted input
+    "S607", # Starting a process with a partial executable path
+    "COM812", # Missing trailing comma
+    "COM819", # Prohibited trailing comma
+    "ISC001", # Implicitly concatenated string literals
+    "ISC002", # Implicitly concatenated string literals
+    "Q000", # Single quotes found but double quotes preferred
+    "Q001", # Single quote multiline found but double quotes preferred
+    "Q002", # Single quote docstring found but double quotes preferred
+    "Q003", # Change outer quotes to avoid escaping inner quotes
+]
 
-[tool.black]
+# Exclude specific files/directories
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    ".Python",
+    "build",
+    "develop-eggs",
+    "dist",
+    "downloads",
+    "eggs",
+    ".eggs",
+    "lib",
+    "lib64",
+    "parts",
+    "sdist",
+    "var",
+    "wheels",
+    "*.egg-info",
+    ".coverage",
+    "htmlcov",
+    ".tox",
+    ".venv",
+    "venv",
+    "ENV",
+    "env",
+    ".pytest_cache",
+    "alembic/versions",
+]
+
+# Maximum line length
 line-length = 88
-target-version = ['py311']
 
-[tool.ruff]
-line-length = 88
-target-version = "py311"
+# Target Python version
+target-version = "py38"
 
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+[lint.per-file-ignores]
+# Ignore specific rules for specific files
+"tests/*" = ["S101", "S106", "S108", "S311", "S603", "S607"]
+"alembic/*" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
+"migrations/*" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
+
+[lint.isort]
+# Import sorting configuration
+known-first-party = ["app"]
+known-third-party = ["fastapi", "sqlalchemy", "pydantic", "httpx", "structlog", "tenacity"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[lint.mccabe]
+# Maximum complexity
+max-complexity = 10
+
+[lint.pydocstyle]
+# Docstring conventions
+convention = "google"
+
+[lint.pyupgrade]
+# Python version for pyupgrade
+target-version = "py38"
+
+[lint.flake8-tidy-imports]
+# Ban specific imports
+ban-relative-imports = "all"
+
+[lint.flake8-type-checking]
+# Type checking imports
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "sqlalchemy.orm.DeclarativeBase"]
+runtime-evaluated-decorators = ["pytest.fixture", "pytest.mark.asyncio"]
+
+[format]
+# Formatting configuration
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

@@ -1,7 +1,5 @@
 """Contato database model."""
 
-from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Integer, String, JSON
 from sqlalchemy.sql import func
@@ -21,7 +19,7 @@ class Contato(Base):
     motivo = Column(String, nullable=False)
     data_cadastro = Column(DateTime(timezone=True), server_default=func.now())
     status_mcp = Column(String, default="pendente")  # pendente, sincronizado, erro
-    metadata = Column(JSON, nullable=True)  # Extra data extracted by LLM
+    extra_data = Column(JSON, nullable=True)  # Extra data extracted by LLM
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

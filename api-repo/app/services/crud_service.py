@@ -1,6 +1,6 @@
 """Business logic for CRUD operations."""
 
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
 
 from app.schemas.contato import ContatoCreate, ContatoUpdate, ContatoOut
@@ -16,11 +16,7 @@ class ContatoService:
         self.repository = ContatoRepository()
         self.llm = LLMIntegration()
 
-    async def create_contato(
-        self,
-        db: Session,
-        data: ContatoCreate
-    ) -> ContatoOut:
+    async def create_contato(self, db: Session, data: ContatoCreate) -> ContatoOut:
         """Create a new contact, optionally extracting entities via LLM."""
         # Check for duplicate phone
         existing = self.repository.get_by_telefone(db, data.telefone or "")
@@ -36,7 +32,7 @@ class ContatoService:
                     "telefone": entities.get("telefone"),
                     "email": entities.get("email"),
                     "motivo": entities.get("motivo"),
-                    "metadata": entities,
+                    "extra_data": entities,
                     "status_mcp": "pendente",
                 }
             except Exception as e:
@@ -49,7 +45,7 @@ class ContatoService:
             # Manual input with explicit fields
             if not all([data.nome, data.telefone, data.motivo]):
                 raise ValueError("Nome, telefone and motivo are required")
-            
+
             contato_data = {
                 "nome": data.nome,
                 "telefone": data.telefone,
@@ -74,21 +70,18 @@ class ContatoService:
         skip: int = 0,
         limit: int = 100,
         motivo: Optional[str] = None,
-        status_mcp: Optional[str] = None
-    ) -> list[ContatoOut]:
+        status_mcp: Optional[str] = None,
+    ) -> List[ContatoOut]:
         """List all contacts with pagination and filters."""
         contatos = self.repository.list_all(db, skip, limit, motivo, status_mcp)
         return [ContatoOut.model_validate(c) for c in contatos]
 
     def update_contato(
-        self,
-        db: Session,
-        contato_id: int,
-        data: ContatoUpdate
+        self, db: Session, contato_id: int, data: ContatoUpdate
     ) -> Optional[ContatoOut]:
         """Update an existing contact."""
         contato_data = data.model_dump(exclude_unset=True)
-        
+
         # Check for duplicate phone if telefone is being updated
         if "telefone" in contato_data:
             existing = self.repository.get_by_telefone(db, contato_data["telefone"])
@@ -110,7 +103,7 @@ class ContatoService:
         from io import BytesIO
 
         contatos = self.repository.list_all(db, limit=settings.EXPORT_MAX_RECORDS)
-        
+
         # Convert to DataFrame
         data = {
             "ID": [c.id for c in contatos],
@@ -121,13 +114,13 @@ class ContatoService:
             "Data Cadastro": [c.data_cadastro for c in contatos],
             "Status MCP": [c.status_mcp for c in contatos],
         }
-        
+
         df = pd.DataFrame(data)
-        
+
         # Export to Excel in memory
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='Contatos', index=False)
-        
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Contatos", index=False)
+
         output.seek(0)
         return output.getvalue()

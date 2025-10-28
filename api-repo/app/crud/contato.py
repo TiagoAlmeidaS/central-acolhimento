@@ -1,11 +1,9 @@
 """Contact CRUD operations."""
 
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
 
 from app.models.contato import Contato
-from app.schemas.contato import ContatoCreate, ContatoUpdate
 
 
 class ContatoRepository:
@@ -36,8 +34,8 @@ class ContatoRepository:
         skip: int = 0,
         limit: int = 100,
         motivo: Optional[str] = None,
-        status_mcp: Optional[str] = None
-    ) -> list[Contato]:
+        status_mcp: Optional[str] = None,
+    ) -> List[Contato]:
         """List all contacts with optional filters."""
         query = db.query(Contato)
 

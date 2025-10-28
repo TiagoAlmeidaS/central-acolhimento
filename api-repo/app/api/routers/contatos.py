@@ -44,10 +44,7 @@ Cadastra um novo contato. Suporta duas modalidades:
         500: {"description": "Erro interno do servidor"},
     },
 )
-async def create_contato(
-    data: ContatoCreate,
-    db: Session = Depends(get_db)
-):
+async def create_contato(data: ContatoCreate, db: Session = Depends(get_db)):
     """Create a new contact (via LLM extraction or manual input)."""
     try:
         service = ContatoService()
@@ -82,7 +79,7 @@ async def list_contatos(
     limit: int = Query(100, ge=1, le=1000),
     motivo: Optional[str] = None,
     status_mcp: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """List all contacts with pagination and filters."""
     service = ContatoService()
@@ -100,11 +97,7 @@ async def get_contato(id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{id}", response_model=ContatoOut)
-async def update_contato(
-    id: int,
-    data: ContatoUpdate,
-    db: Session = Depends(get_db)
-):
+async def update_contato(id: int, data: ContatoUpdate, db: Session = Depends(get_db)):
     """Update an existing contact."""
     service = ContatoService()
     try:
@@ -130,11 +123,9 @@ async def export_to_excel(db: Session = Depends(get_db)):
     """Export contacts to Excel file."""
     service = ContatoService()
     excel_data = service.export_to_excel(db)
-    
+
     return Response(
         content=excel_data,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": "attachment; filename=contatos.xlsx"
-        }
+        headers={"Content-Disposition": "attachment; filename=contatos.xlsx"},
     )

@@ -41,7 +41,7 @@ class ContatoOut(ContatoBase):
     data_cadastro: datetime
     status_mcp: str
     mcp_synced_at: Optional[datetime] = None
-    metadata: Optional[dict] = None
+    extra_data: Optional[dict] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

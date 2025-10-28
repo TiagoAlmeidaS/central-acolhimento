@@ -1,5 +1,6 @@
 """Application settings and configuration."""
 
+from typing import List
 from pydantic_settings import BaseSettings
 
 
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
     JWT_REFRESH_EXPIRE_DAYS: int = 7
 
     # CORS
-    CORS_ORIGINS: list[str] = ["*"]
+    CORS_ORIGINS: List[str] = ["*"]
 
     # Logging
     LOG_LEVEL: str = "INFO"
