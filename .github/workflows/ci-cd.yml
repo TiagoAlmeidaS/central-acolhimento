@@ -1,0 +1,358 @@
+# Central de Acolhimento - CI/CD Pipeline
+# GitHub Actions workflow for automated deployment
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_API: ${{ github.repository }}/api
+  IMAGE_NAME_LLM: ${{ github.repository }}/llm
+
+jobs:
+  # API Repository Tests
+  test-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api-repo
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov
+    
+    - name: Run tests
+      run: |
+        pytest tests/ --cov=app --cov-report=xml --cov-report=html --cov-fail-under=90
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-coverage-report
+        path: api-repo/htmlcov/
+    
+    - name: Run code quality checks
+      run: |
+        black --check .
+        ruff check .
+        mypy app/
+    
+    - name: Security scan
+      run: |
+        pip install bandit safety
+        bandit -r app -ll
+        safety check -r requirements.txt
+
+  # LLM Repository Tests
+  test-llm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./llm-repo
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest-cov
+    
+    - name: Run tests
+      run: |
+        pytest tests/ --cov=app --cov-report=xml --cov-report=html --cov-fail-under=50
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: llm-coverage-report
+        path: llm-repo/htmlcov/
+    
+    - name: Run code quality checks
+      run: |
+        black --check .
+        ruff check .
+        mypy app/
+    
+    - name: Security scan
+      run: |
+        pip install bandit safety
+        bandit -r app -ll
+        safety check -r requirements.txt
+
+  # Build and Push Docker Images
+  build-and-push:
+    needs: [test-api, test-llm]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata for API
+      id: meta-api
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Extract metadata for LLM
+      id: meta-llm
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LLM }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push API image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./api-repo
+        push: true
+        tags: ${{ steps.meta-api.outputs.tags }}
+        labels: ${{ steps.meta-api.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push LLM image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./llm-repo
+        push: true
+        tags: ${{ steps.meta-llm.outputs.tags }}
+        labels: ${{ steps.meta-llm.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Deploy to Development
+  deploy-dev:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region us-east-1 --name central-acolhimento-dev
+    
+    - name: Deploy to Kubernetes
+      run: |
+        # Update image tags in manifests
+        sed -i "s|central-acolhimento-api:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:develop|g" api-repo/k8s/central-acolhimento.yaml
+        sed -i "s|central-acolhimento-llm:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LLM }}:develop|g" api-repo/k8s/central-acolhimento.yaml
+        
+        # Apply manifests
+        kubectl apply -f api-repo/k8s/central-acolhimento.yaml
+        kubectl apply -f api-repo/k8s/ingress.yaml
+        kubectl apply -f api-repo/k8s/monitoring.yaml
+        kubectl apply -f api-repo/k8s/grafana.yaml
+        
+        # Wait for deployment
+        kubectl rollout status deployment/api-deployment -n central-acolhimento --timeout=300s
+        kubectl rollout status deployment/llm-deployment -n central-acolhimento --timeout=300s
+    
+    - name: Run smoke tests
+      run: |
+        # Wait for services to be ready
+        kubectl wait --for=condition=ready pod -l app=api -n central-acolhimento --timeout=300s
+        kubectl wait --for=condition=ready pod -l app=llm -n central-acolhimento --timeout=300s
+        
+        # Get service URLs
+        API_URL=$(kubectl get ingress central-acolhimento-ingress -n central-acolhimento -o jsonpath='{.spec.rules[0].host}')
+        LLM_URL=$(kubectl get ingress central-acolhimento-ingress -n central-acolhimento -o jsonpath='{.spec.rules[1].host}')
+        
+        # Test API health
+        curl -f https://$API_URL/health || exit 1
+        
+        # Test LLM health
+        curl -f https://$LLM_URL/health || exit 1
+
+  # Deploy to Production
+  deploy-prod:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region us-east-1 --name central-acolhimento-prod
+    
+    - name: Deploy to Kubernetes
+      run: |
+        # Update image tags in manifests
+        sed -i "s|central-acolhimento-api:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}:latest|g" api-repo/k8s/central-acolhimento.yaml
+        sed -i "s|central-acolhimento-llm:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LLM }}:latest|g" api-repo/k8s/central-acolhimento.yaml
+        
+        # Apply manifests
+        kubectl apply -f api-repo/k8s/central-acolhimento.yaml
+        kubectl apply -f api-repo/k8s/ingress.yaml
+        kubectl apply -f api-repo/k8s/monitoring.yaml
+        kubectl apply -f api-repo/k8s/grafana.yaml
+        
+        # Wait for deployment
+        kubectl rollout status deployment/api-deployment -n central-acolhimento --timeout=600s
+        kubectl rollout status deployment/llm-deployment -n central-acolhimento --timeout=600s
+    
+    - name: Run production tests
+      run: |
+        # Wait for services to be ready
+        kubectl wait --for=condition=ready pod -l app=api -n central-acolhimento --timeout=600s
+        kubectl wait --for=condition=ready pod -l app=llm -n central-acolhimento --timeout=600s
+        
+        # Get service URLs
+        API_URL=$(kubectl get ingress central-acolhimento-ingress -n central-acolhimento -o jsonpath='{.spec.rules[0].host}')
+        LLM_URL=$(kubectl get ingress central-acolhimento-ingress -n central-acolhimento -o jsonpath='{.spec.rules[1].host}')
+        
+        # Test API health
+        curl -f https://$API_URL/health || exit 1
+        
+        # Test LLM health
+        curl -f https://$LLM_URL/health || exit 1
+        
+        # Test API endpoints
+        curl -f https://$API_URL/contatos/ || exit 1
+        
+        # Test LLM endpoints
+        curl -f https://$LLM_URL/mcp/health || exit 1
+
+  # Infrastructure Deployment
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.0
+    
+    - name: Terraform Init
+      run: |
+        cd api-repo/terraform
+        terraform init
+    
+    - name: Terraform Plan
+      run: |
+        cd api-repo/terraform
+        terraform plan -var="environment=prod" -out=tfplan
+    
+    - name: Terraform Apply
+      run: |
+        cd api-repo/terraform
+        terraform apply tfplan
+    
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region us-east-1 --name central-acolhimento-prod
+    
+    - name: Install Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+    
+    - name: Install NGINX Ingress Controller
+      run: |
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
+        helm install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.service.type=LoadBalancer
+    
+    - name: Install Cert-Manager
+      run: |
+        helm repo add jetstack https://charts.jetstack.io
+        helm repo update
+        helm install cert-manager jetstack/cert-manager \
+          --namespace cert-manager \
+          --create-namespace \
+          --version v1.13.0 \
+          --set installCRDs=true
+    
+    - name: Install Prometheus Operator
+      run: |
+        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+        helm repo update
+        helm install prometheus prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          --create-namespace \
+          --set grafana.adminPassword=admin123
